@@ -1,41 +1,113 @@
-This is the gem5 simulator.
+###CS 203 Lab Assignment 3 
 
-The main website can be found at http://www.gem5.org
+Tianxiang Sun 862051319
+Qiuchen Xie 862057591
 
-A good starting point is http://www.gem5.org/Introduction, and for
-more information about building the simulator and getting started
-please see http://www.gem5.org/Documentation and
-http://www.gem5.org/Tutorials.
+###A README file about modifying gem5 code to inplement FIFO replacement policy
 
-To build gem5, you will need the following software: g++ or clang,
-Python (gem5 links in the Python interpreter), SCons, SWIG, zlib, m4,
-and lastly protobuf if you want trace capture and playback
-support. Please see http://www.gem5.org/Dependencies for more details
-concerning the minimum versions of the aforementioned tools.
+##Part 1
+##Modifying those files
 
-Once you have all dependencies resolved, type 'scons
-build/<ARCH>/gem5.opt' where ARCH is one of ALPHA, ARM, NULL, MIPS,
-POWER, SPARC, or X86. This will build an optimized version of the gem5
-binary (gem5.opt) for the the specified architecture. See
-http://www.gem5.org/Build_System for more details and options.
+1.Modifying gem5/src/mem/cache/Cache.py
 
-With the simulator built, have a look at
-http://www.gem5.org/Running_gem5 for more information on how to use
-gem5.
+comment 
+	tag = Param.BaseTags(LRU(), "Tag store (replacement policy)")
+And add 
+	tag = Param.BaseTags(FIFO(),"Tag store (replacement policy)") 
 
-The basic source release includes these subdirectories:
-   - configs: example simulation configuration scripts
-   - ext: less-common external packages needed to build gem5
-   - src: source code of the gem5 simulator
-   - system: source for some optional system software for simulated systems
-   - tests: regression tests
-   - util: useful utility programs and files
+For the first part, we only need to use LRU replacement policy here, therefore, we should comment the line 
+	tag = Param.BaseTags(LRU()," Tag store (replacement policy)")
+however, for the second part, we need to implement different replacement policy  for different part of cache, therefore, we should uncomment it.
 
-To run full-system simulations, you will need compiled system firmware
-(console and PALcode for Alpha), kernel binaries and one or more disk
-images. Please see the gem5 download page for these items at
-http://www.gem5.org/Download
+2.Modifying gem5/src/mem/cache/base.cc
 
-If you have questions, please send mail to gem5-users@gem5.org
+Add 
+	#include "mem/cache/tags/fifo.hh"
 
-Enjoy using gem5 and please share your modifications and extensions.
+3.Modifying gem5/src/mem/cache/tags/Tags.py
+
+Add
+
+	class FIFO(BasesetAssoc):
+		type ='FIFO'
+		cxx_class = 'FIFO'
+		cxx_header = "mem/cache/tags/fifo.hh"
+
+4.Modifying gem5/src/mem/cache/tags/SConscript
+
+Add 
+	Source('fifo.cc')
+
+5.Add a fifo.hh file in directory gem5/src/mem/cache/tags
+
+Most part of this file is like file lru.hh, it is how we implement this file. We try to use lru.hh as a example to write this file. 
+
+6.Add a FIFO.hh file in directory gem5/build/ALPHA/params
+
+Most part of this file is likw file LRU.hh, it is how we implement this file. We try to use LRU.hh as a example also
+
+7.Add fifo.cc file in directory gem5/src/mem/cache/tags
+
+Most part of this file is like lru.cc, it is how we implement this file.The most important part we need to consider and change is 
+	FIFO::accessBlock(Addr addr, bool is_secure, Cycles &lat)
+Seeing details in code.
+
+##Above part is how we implement FIFO replacement policy in gem5 
+
+
+##Part 2
+##Modifying those files
+
+
+1.Add victim cache class in gem5/configs/common/Caches.py
+
+We add the cache class here using other cache class as a example.
+	class VictimCache(Cache):
+				....
+And we also use 
+	tags = Param.BaseTag(FIFO(),"Tag store (replacement policy)")
+and 
+	tags = Param.BaseTag(LRU(),"Tag store (replacement policy")
+to implement different replacement policy for different caches.
+
+2.Define VictimXBar in src/mem/XBar.py
+
+	class VictimXBar(CoherentXBar):
+				....
+
+3. Import VictimXBar in gem5/src/cpu/BaseCPU.py
+
+	from XBar import VictimBar
+
+
+4. Also define function in BaseCPU.py
+
+
+5.Modifying gem5/configs/common/CacheConfig.py
+
+Add victim_cache_class here
+	dcache_class,icache_class,l2_cache_class,victim_cache_class,walk_cache_class = \
+	L1_Dcache,L1_Icache, L2Cache, VictimCache, None
+
+Connect victim cache with other part here
+	if options.l2cache:
+		if options.victimcache:
+					....
+
+Seeing details in code.
+
+
+6.Add option in gem5/configs/common/Options.py 
+
+	parser.add_option("--victimccdache",action="store_true")
+
+And we still need to add options of victim size and assoc here
+
+After adding all those options, then we can put the options in exact position as where we put in Options.py to run gem5.Because the victim cache would have 4,8,16 blocks. We use 64B as block size. The size of victim cache would be 256B,512B and 1024B. The assoc here we use 1.
+
+##Finished here
+##Implement victim cache here.
+
+
+###Done
+###Finished all parts
